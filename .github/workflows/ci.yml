@@ -1,39 +1,59 @@
-name: CMake Build Workflow
+name: Build with GCC and Clang
 
 on:
   push:
-    branches:
-      - main
+    branches: [ main ]
   pull_request:
-    branches:
-      - main
-
-env:
-  BUILD_TYPE: Release
+    branches: [ main ]
 
 jobs:
-  cmake-build:
+  linux-gcc:
+    name: Linux (GCC)
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v3
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y build-essential
+      - run: |
+          mkdir build && cd build
+          cmake .. -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+          cmake --build . --parallel
 
-      - name: Build all components
+  linux-clang:
+    name: Linux (Clang)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo apt-get update && sudo apt-get install -y clang
+      - run: |
+          mkdir build && cd build
+          cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake --build . --parallel
+
+  windows-gcc:
+    name: Windows (GCC via MinGW)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: mingw-w64-x86_64-gcc mingw-w64-x86_64-cmake make
+      - shell: msys2 {0}
         run: |
-          components=(
-            formatter_lib
-            formatter_ex_lib
-            solver_lib
-            hello_world_application
-            solver_application
-          )
+          mkdir build && cd build
+          cmake .. -G "MinGW Makefiles" -DCMAKE_C_COMPILER=gcc -DCMAKE_CXX_COMPILER=g++
+          cmake --build .
 
-          for dir in "${components[@]}"; do
-            echo "Building $dir..."
-            mkdir -p "$dir/build"
-            pushd "$dir/build"
-            cmake .. -DCMAKE_BUILD_TYPE=${{ env.BUILD_TYPE }}
-            cmake --build . --config ${{ env.BUILD_TYPE }}
-            popd
-          done
+  windows-clang:
+    name: Windows (Clang)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install LLVM
+        uses: KyleMayes/install-llvm-action@v1
+        with:
+          version: "17"
+      - run: |
+          mkdir build && cd build
+          cmake .. -DCMAKE_C_COMPILER=clang -DCMAKE_CXX_COMPILER=clang++
+          cmake --build . --parallel
